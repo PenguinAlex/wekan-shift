@@ -233,7 +233,7 @@ BlazeComponent.extendComponent({
   },
 
   events() {
-    if (user.isAdmin()){
+     if (user.isAdmin()){
       return [
         {
           'click .js-add-board': Popup.open('createBoard'),
