@@ -233,124 +233,216 @@ BlazeComponent.extendComponent({
   },
 
   events() {
-    return [
-      {
-        'click .js-add-board': Popup.open('createBoard'),
-        'click .js-star-board'(evt) {
-          const boardId = this.currentData()._id;
-          ReactiveCache.getCurrentUser().toggleBoardStar(boardId);
-          evt.preventDefault();
-        },
-        'click .js-clone-board'(evt) {
-          let title = getSlug(ReactiveCache.getBoard(this.currentData()._id).title) || 'cloned-board';
-          Meteor.call(
-            'copyBoard',
-            this.currentData()._id,
-            {
-              sort: ReactiveCache.getBoards({ archived: false }).length,
-              type: 'board',
-              title: ReactiveCache.getBoard(this.currentData()._id).title,
-            },
-            (err, res) => {
-              if (err) {
-                console.error(err);
-              } else {
-                Session.set('fromBoard', null);
-                subManager.subscribe('board', res, false);
-                FlowRouter.go('board', {
-                  id: res,
-                  slug: title,
-                });
+    if (user.isAdmin()){
+      return [
+        {
+          'click .js-add-board': Popup.open('createBoard'),
+          'click .js-star-board'(evt) {
+            const boardId = this.currentData()._id;
+            ReactiveCache.getCurrentUser().toggleBoardStar(boardId);
+            evt.preventDefault();
+          },
+          'click .js-clone-board'(evt) {
+            let title = getSlug(ReactiveCache.getBoard(this.currentData()._id).title) || 'cloned-board';
+            Meteor.call(
+              'copyBoard',
+              this.currentData()._id,
+              {
+                sort: ReactiveCache.getBoards({ archived: false }).length,
+                type: 'board',
+                title: ReactiveCache.getBoard(this.currentData()._id).title,
+              },
+              (err, res) => {
+                if (err) {
+                  console.error(err);
+                } else {
+                  Session.set('fromBoard', null);
+                  subManager.subscribe('board', res, false);
+                  FlowRouter.go('board', {
+                    id: res,
+                    slug: title,
+                  });
+                }
+              },
+            );
+            evt.preventDefault();
+          },
+          'click .js-archive-board'(evt) {
+            const boardId = this.currentData()._id;
+            Meteor.call('archiveBoard', boardId);
+            evt.preventDefault();
+          },
+          'click .js-accept-invite'() {
+            const boardId = this.currentData()._id;
+            Meteor.call('acceptInvite', boardId);
+          },
+          'click .js-decline-invite'() {
+            const boardId = this.currentData()._id;
+            Meteor.call('quitBoard', boardId, (err, ret) => {
+              if (!err && ret) {
+                Meteor.call('acceptInvite', boardId);
+                FlowRouter.go('home');
               }
-            },
-          );
-          evt.preventDefault();
-        },
-        'click .js-archive-board'(evt) {
-          const boardId = this.currentData()._id;
-          Meteor.call('archiveBoard', boardId);
-          evt.preventDefault();
-        },
-        'click .js-accept-invite'() {
-          const boardId = this.currentData()._id;
-          Meteor.call('acceptInvite', boardId);
-        },
-        'click .js-decline-invite'() {
-          const boardId = this.currentData()._id;
-          Meteor.call('quitBoard', boardId, (err, ret) => {
-            if (!err && ret) {
-              Meteor.call('acceptInvite', boardId);
-              FlowRouter.go('home');
-            }
-          });
-        },
-        'click #resetBtn'(event) {
-          let allBoards = document.getElementsByClassName("js-board");
-          let currBoard;
-          for (let i = 0; i < allBoards.length; i++) {
-            currBoard = allBoards[i];
-            currBoard.style.display = "block";
-          }
-        },
-        'click #filterBtn'(event) {
-          event.preventDefault();
-          let selectedTeams = document.querySelectorAll('#jsAllBoardTeams option:checked');
-          let selectedTeamsValues = Array.from(selectedTeams).map(function (elt) { return elt.value });
-          let index = selectedTeamsValues.indexOf("-1");
-          if (index > -1) {
-            selectedTeamsValues.splice(index, 1);
-          }
-
-          let selectedOrgs = document.querySelectorAll('#jsAllBoardOrgs option:checked');
-          let selectedOrgsValues = Array.from(selectedOrgs).map(function (elt) { return elt.value });
-          index = selectedOrgsValues.indexOf("-1");
-          if (index > -1) {
-            selectedOrgsValues.splice(index, 1);
-          }
-
-          if (selectedTeamsValues.length > 0 || selectedOrgsValues.length > 0) {
-            const query = {
-              $and: [
-                { archived: false },
-                { type: 'board' },
-                { $or: [] }
-              ]
-            };
-            if (selectedTeamsValues.length > 0) {
-              query.$and[2].$or.push({ 'teams.teamId': { $in: selectedTeamsValues } });
-            }
-            if (selectedOrgsValues.length > 0) {
-              query.$and[2].$or.push({ 'orgs.orgId': { $in: selectedOrgsValues } });
-            }
-
-            let filteredBoards = ReactiveCache.getBoards(query, {});
+            });
+          },
+          'click #resetBtn'(event) {
             let allBoards = document.getElementsByClassName("js-board");
             let currBoard;
-            if (filteredBoards.length > 0) {
-              let currBoardId;
-              let found;
-              for (let i = 0; i < allBoards.length; i++) {
-                currBoard = allBoards[i];
-                currBoardId = currBoard.classList[0];
-                found = filteredBoards.find(function (board) {
-                  return board._id == currBoardId;
-                });
+            for (let i = 0; i < allBoards.length; i++) {
+              currBoard = allBoards[i];
+              currBoard.style.display = "block";
+            }
+          },
+          'click #filterBtn'(event) {
+            event.preventDefault();
+            let selectedTeams = document.querySelectorAll('#jsAllBoardTeams option:checked');
+            let selectedTeamsValues = Array.from(selectedTeams).map(function (elt) { return elt.value });
+            let index = selectedTeamsValues.indexOf("-1");
+            if (index > -1) {
+              selectedTeamsValues.splice(index, 1);
+            }
 
-                if (found !== undefined)
-                  currBoard.style.display = "block";
-                else
+            let selectedOrgs = document.querySelectorAll('#jsAllBoardOrgs option:checked');
+            let selectedOrgsValues = Array.from(selectedOrgs).map(function (elt) { return elt.value });
+            index = selectedOrgsValues.indexOf("-1");
+            if (index > -1) {
+              selectedOrgsValues.splice(index, 1);
+            }
+
+            if (selectedTeamsValues.length > 0 || selectedOrgsValues.length > 0) {
+              const query = {
+                $and: [
+                  { archived: false },
+                  { type: 'board' },
+                  { $or: [] }
+                ]
+              };
+              if (selectedTeamsValues.length > 0) {
+                query.$and[2].$or.push({ 'teams.teamId': { $in: selectedTeamsValues } });
+              }
+              if (selectedOrgsValues.length > 0) {
+                query.$and[2].$or.push({ 'orgs.orgId': { $in: selectedOrgsValues } });
+              }
+
+              let filteredBoards = ReactiveCache.getBoards(query, {});
+              let allBoards = document.getElementsByClassName("js-board");
+              let currBoard;
+              if (filteredBoards.length > 0) {
+                let currBoardId;
+                let found;
+                for (let i = 0; i < allBoards.length; i++) {
+                  currBoard = allBoards[i];
+                  currBoardId = currBoard.classList[0];
+                  found = filteredBoards.find(function (board) {
+                    return board._id == currBoardId;
+                  });
+
+                  if (found !== undefined)
+                    currBoard.style.display = "block";
+                  else
+                    currBoard.style.display = "none";
+                }
+              }
+              else {
+                for (let i = 0; i < allBoards.length; i++) {
+                  currBoard = allBoards[i];
                   currBoard.style.display = "none";
+                }
               }
             }
-            else {
-              for (let i = 0; i < allBoards.length; i++) {
-                currBoard = allBoards[i];
-                currBoard.style.display = "none";
-              }
-            }
-          }
+          },
         },
-      },
-    ];
+      ];
+    } else {
+      return [
+        {
+          'click .js-archive-board'(evt) {
+            const boardId = this.currentData()._id;
+            Meteor.call('archiveBoard', boardId);
+            evt.preventDefault();
+          },
+          'click .js-accept-invite'() {
+            const boardId = this.currentData()._id;
+            Meteor.call('acceptInvite', boardId);
+          },
+          'click .js-decline-invite'() {
+            const boardId = this.currentData()._id;
+            Meteor.call('quitBoard', boardId, (err, ret) => {
+              if (!err && ret) {
+                Meteor.call('acceptInvite', boardId);
+                FlowRouter.go('home');
+              }
+            });
+          },
+          'click #resetBtn'(event) {
+            let allBoards = document.getElementsByClassName("js-board");
+            let currBoard;
+            for (let i = 0; i < allBoards.length; i++) {
+              currBoard = allBoards[i];
+              currBoard.style.display = "block";
+            }
+          },
+          'click #filterBtn'(event) {
+            event.preventDefault();
+            let selectedTeams = document.querySelectorAll('#jsAllBoardTeams option:checked');
+            let selectedTeamsValues = Array.from(selectedTeams).map(function (elt) { return elt.value });
+            let index = selectedTeamsValues.indexOf("-1");
+            if (index > -1) {
+              selectedTeamsValues.splice(index, 1);
+            }
+
+            let selectedOrgs = document.querySelectorAll('#jsAllBoardOrgs option:checked');
+            let selectedOrgsValues = Array.from(selectedOrgs).map(function (elt) { return elt.value });
+            index = selectedOrgsValues.indexOf("-1");
+            if (index > -1) {
+              selectedOrgsValues.splice(index, 1);
+            }
+
+            if (selectedTeamsValues.length > 0 || selectedOrgsValues.length > 0) {
+              const query = {
+                $and: [
+                  { archived: false },
+                  { type: 'board' },
+                  { $or: [] }
+                ]
+              };
+              if (selectedTeamsValues.length > 0) {
+                query.$and[2].$or.push({ 'teams.teamId': { $in: selectedTeamsValues } });
+              }
+              if (selectedOrgsValues.length > 0) {
+                query.$and[2].$or.push({ 'orgs.orgId': { $in: selectedOrgsValues } });
+              }
+
+              let filteredBoards = ReactiveCache.getBoards(query, {});
+              let allBoards = document.getElementsByClassName("js-board");
+              let currBoard;
+              if (filteredBoards.length > 0) {
+                let currBoardId;
+                let found;
+                for (let i = 0; i < allBoards.length; i++) {
+                  currBoard = allBoards[i];
+                  currBoardId = currBoard.classList[0];
+                  found = filteredBoards.find(function (board) {
+                    return board._id == currBoardId;
+                  });
+
+                  if (found !== undefined)
+                    currBoard.style.display = "block";
+                  else
+                    currBoard.style.display = "none";
+                }
+              }
+              else {
+                for (let i = 0; i < allBoards.length; i++) {
+                  currBoard = allBoards[i];
+                  currBoard.style.display = "none";
+                }
+              }
+            }
+          },
+        },
+      ];
+    }
+
   },
 }).register('boardList');
